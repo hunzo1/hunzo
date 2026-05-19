@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% block title %}Settings — Hunzo{% endblock %}
+{% block body %}
+<nav class="nav">
+    <a href="/" class="nav-logo">
+        <div class="nav-logo-mark">H</div>
+        <span class="nav-logo-text">Hunzo</span>
+    </a>
+</nav>
+
+<div class="app-layout">
+    <div class="sidebar">
+        <a href="/dashboard" class="sidebar-link">
+            <span class="sidebar-icon">⊞</span> Dashboard
+        </a>
+        <a href="/analyze" class="sidebar-link">
+            <span class="sidebar-icon">⚡</span> Analyze
+        </a>
+        <a href="/history" class="sidebar-link">
+            <span class="sidebar-icon">📋</span> History
+        </a>
+        <div class="sidebar-label">Account</div>
+        <a href="/settings" class="sidebar-link active">
+            <span class="sidebar-icon">⚙</span> Settings
+        </a>
+        <a href="/logout" class="sidebar-link">
+            <span class="sidebar-icon">→</span> Sign out
+        </a>
+    </div>
+
+    <div class="main-content">
+        <div class="page-header">
+            <div class="page-title">Settings</div>
+            <div class="page-sub">Manage your account and API keys</div>
+        </div>
+
+        <!-- API Key Section -->
+        <div class="card" style="margin-bottom:24px">
+            <div style="font-size:14px;font-weight:600;margin-bottom:4px">Groq API Key</div>
+            <div style="font-size:13px;color:var(--text2);margin-bottom:20px">
+                Your key is encrypted with AES-256 and never stored in plain text.
+                <a href="https://console.groq.com" target="_blank" style="color:var(--accent);text-decoration:none">Get a free key →</a>
+            </div>
+
+            <div id="successAlert" class="alert alert-success"></div>
+            <div id="errorAlert" class="alert alert-error"></div>
+
+            {% if masked_key %}
+            <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius-sm);margin-bottom:16px;flex-wrap:wrap;gap:12px">
+                <div style="flex:1">
+                    <div style="font-size:11px;color:var(--text3);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.06em;font-weight:600">Saved key</div>
+                    <div style="font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--success)">{{ masked_key }}</div>
+                    {% if api_key_row and api_key_row.last_used %}
+                    <div style="font-size:11px;color:var(--text3);margin-top:4px">Last used: {{ api_key_row.last_used[:10] }}</div>
+                    {% endif %}
+                </div>
+                <button class="btn btn-danger btn-sm" onclick="deleteKey()">Remove</button>
+            </div>
+            {% endif %}
+
+            <div class="form-group">
+                <label class="label">{{ 'Update' if masked_key else 'Add' }} API key</label>
+                <div style="display:flex;gap:8px">
+                    <input type="password" id="apiKeyInput" class="input input-mono" placeholder="gsk_..." />
+                    <button class="btn btn-primary" onclick="saveKey()">Save key</button>
+                </div>
+            </div>
+
+            <div style="padding:12px 16px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm)">
+                <div style="font-size:12px;color:var(--text3);line-height:1.6">
+                    🔒 <strong style="color:var(--text2)">Security:</strong> Your key is encrypted before storage using AES-256-Fernet encryption.
+                    It is never transmitted to third parties and only decrypted when needed for analysis requests.
+                </div>
+            </div>
+        </div>
+
+        <!-- Account Section -->
+        <div class="card">
+            <div style="font-size:14px;font-weight:600;margin-bottom:20px">Account</div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border)">
+                <div>
+                    <div style="font-size:13px;font-weight:500">Email</div>
+                    <div style="font-size:12px;color:var(--text2)">{{ user.email }}</div>
+                </div>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0">
+                <div>
+                    <div style="font-size:13px;font-weight:500">Plan</div>
+                    <div style="font-size:12px;color:var(--text2)">{{ user.plan | title }}</div>
+                </div>
+                {% if user.plan == 'free' %}
+                <span class="badge badge-gray">Free</span>
+                {% else %}
+                <span class="badge badge-purple">Pro</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+async function saveKey() {
+    const key = document.getElementById("apiKeyInput").value.trim();
+    const success = document.getElementById("successAlert");
+    const error = document.getElementById("errorAlert");
+
+    success.classList.remove("alert-show");
+    error.classList.remove("alert-show");
+
+    if (!key) {
+        error.textContent = "Please enter an API key";
+        error.classList.add("alert-show");
+        return;
+    }
+
+    if (!key.startsWith("gsk_")) {
+        error.textContent = "Invalid Groq API key format. Keys start with gsk_";
+        error.classList.add("alert-show");
+        return;
+    }
+
+    try {
+        const res = await fetch("/api/save-key", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ api_key: key })
+        });
+        const data = await res.json();
+        if (data.success) {
+            success.textContent = "API key saved and encrypted successfully!";
+            success.classList.add("alert-show");
+            document.getElementById("apiKeyInput").value = "";
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            error.textContent = data.error;
+            error.classList.add("alert-show");
+        }
+    } catch (e) {
+        error.textContent = "Failed to save key. Please try again.";
+        error.classList.add("alert-show");
+    }
+}
+
+async function deleteKey() {
+    if (!confirm("Remove your saved API key?")) return;
+    const res = await fetch("/api/delete-key", { method: "POST" });
+    const data = await res.json();
+    if (data.success) location.reload();
+}
+</script>
+{% endblock %}

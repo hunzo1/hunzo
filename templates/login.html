@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block title %}Sign in — Hunzo{% endblock %}
+{% block head %}
+<style>
+    .auth-wrap {
+        min-height: calc(100vh - 56px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 40px 24px;
+    }
+
+    .auth-card { width: 100%; max-width: 400px; }
+
+    .auth-title {
+        font-size: 22px;
+        font-weight: 700;
+        letter-spacing: -0.5px;
+        margin-bottom: 6px;
+    }
+
+    .auth-sub {
+        font-size: 13px;
+        color: var(--text2);
+        margin-bottom: 32px;
+    }
+
+    .auth-footer {
+        text-align: center;
+        margin-top: 20px;
+        font-size: 13px;
+        color: var(--text3);
+    }
+
+    .auth-footer a { color: var(--accent); text-decoration: none; }
+    .auth-footer a:hover { text-decoration: underline; }
+</style>
+{% endblock %}
+{% block body %}
+<nav class="nav">
+    <a href="/" class="nav-logo">
+        <div class="nav-logo-mark">H</div>
+        <span class="nav-logo-text">Hunzo</span>
+    </a>
+</nav>
+
+<div class="auth-wrap">
+    <div class="auth-card">
+        <div class="auth-title">Welcome back</div>
+        <div class="auth-sub">Sign in to your Hunzo account</div>
+
+        <div id="errorAlert" class="alert alert-error"></div>
+
+        <div class="form-group">
+            <label class="label">Email address</label>
+            <input type="email" id="email" class="input" placeholder="you@example.com" autocomplete="email" />
+        </div>
+
+        <div class="form-group">
+            <label class="label">Password</label>
+            <input type="password" id="password" class="input" placeholder="Your password" autocomplete="current-password" />
+        </div>
+
+        <button class="btn btn-white btn-full btn-lg" id="loginBtn" onclick="login()">
+            Sign in →
+        </button>
+
+        <div class="auth-footer">
+            Don't have an account? <a href="/signup">Sign up free</a>
+        </div>
+    </div>
+</div>
+
+<script>
+async function login() {
+    const email = document.getElementById("email").value.trim();
+    const password = document.getElementById("password").value.trim();
+    const btn = document.getElementById("loginBtn");
+    const alert = document.getElementById("errorAlert");
+
+    alert.classList.remove("alert-show");
+
+    if (!email || !password) {
+        alert.textContent = "Please fill in all fields";
+        alert.classList.add("alert-show");
+        return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Signing in...';
+
+    try {
+        const res = await fetch("/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, password })
+        });
+        const data = await res.json();
+        if (data.success) {
+            window.location.href = data.redirect;
+        } else {
+            alert.textContent = data.error;
+            alert.classList.add("alert-show");
+            btn.disabled = false;
+            btn.textContent = "Sign in →";
+        }
+    } catch (e) {
+        alert.textContent = "Something went wrong. Please try again.";
+        alert.classList.add("alert-show");
+        btn.disabled = false;
+        btn.textContent = "Sign in →";
+    }
+}
+
+document.addEventListener("keydown", e => {
+    if (e.key === "Enter") login();
+});
+</script>
+{% endblock %}

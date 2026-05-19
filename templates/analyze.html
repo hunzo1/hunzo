@@ -1,0 +1,552 @@
+{% extends "base.html" %}
+{% block title %}Analyze — Hunzo{% endblock %}
+{% block head %}
+<style>
+    .analyzer-wrap {
+        max-width: 860px;
+        margin: 0 auto;
+        padding: 32px 24px;
+    }
+
+    .tool-card {
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+        background: var(--bg2);
+    }
+
+    .tool-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--border);
+        background: var(--bg3);
+    }
+
+    .tool-dots { display: flex; gap: 6px; }
+
+    .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+    }
+
+    .dot-r { background: #ff5f57; }
+    .dot-y { background: #febc2e; }
+    .dot-g { background: #28c840; }
+
+    .tool-name {
+        font-size: 12px;
+        color: var(--text3);
+        font-family: 'JetBrains Mono', monospace;
+    }
+
+    .key-section {
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--border);
+        background: var(--bg3);
+    }
+
+    .key-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .key-saved {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex: 1;
+        padding: 9px 14px;
+        background: rgba(34,197,94,0.08);
+        border: 1px solid rgba(34,197,94,0.2);
+        border-radius: var(--radius-sm);
+        font-size: 12px;
+        color: var(--success);
+        font-family: 'JetBrains Mono', monospace;
+    }
+
+    textarea {
+        width: 100%;
+        min-height: 300px;
+        background: transparent;
+        border: none;
+        padding: 20px;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 13px;
+        color: var(--text);
+        outline: none;
+        resize: vertical;
+        line-height: 1.7;
+    }
+
+    textarea::placeholder { color: var(--text3); }
+
+    .tool-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 16px;
+        border-top: 1px solid var(--border);
+        background: var(--bg3);
+    }
+
+    .tool-meta {
+        font-size: 12px;
+        color: var(--text3);
+        display: flex;
+        align-items: center;
+        gap: 16px;
+    }
+
+    .loading-wrap {
+        display: none;
+        padding: 48px;
+        text-align: center;
+        border-top: 1px solid var(--border);
+    }
+
+    .loading-spinner {
+        width: 36px;
+        height: 36px;
+        border: 2px solid var(--border3);
+        border-top-color: var(--accent);
+        border-radius: 50%;
+        animation: spin 0.7s linear infinite;
+        margin: 0 auto 16px;
+    }
+
+    .loading-title { font-size: 14px; font-weight: 500; margin-bottom: 6px; }
+    .loading-step { font-size: 12px; color: var(--text3); font-family: 'JetBrains Mono', monospace; }
+
+    /* RESULTS */
+    .results-wrap {
+        display: none;
+        border-top: 1px solid var(--border);
+    }
+
+    .score-section {
+        padding: 48px 24px;
+        text-align: center;
+        border-bottom: 1px solid var(--border);
+        background: var(--bg3);
+    }
+
+    .score-eyebrow {
+        font-size: 10px;
+        font-weight: 600;
+        color: var(--text3);
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        font-family: 'JetBrains Mono', monospace;
+        margin-bottom: 12px;
+    }
+
+    .score-big {
+        font-size: 96px;
+        font-weight: 800;
+        letter-spacing: -0.06em;
+        line-height: 1;
+        margin-bottom: 12px;
+    }
+
+    .score-track {
+        width: 240px;
+        height: 3px;
+        background: var(--border3);
+        border-radius: 2px;
+        margin: 0 auto 16px;
+        overflow: hidden;
+    }
+
+    .score-fill {
+        height: 100%;
+        border-radius: 2px;
+        width: 0%;
+        transition: width 1.4s cubic-bezier(0.4,0,0.2,1);
+    }
+
+    .score-verdict {
+        display: inline-block;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        padding: 4px 14px;
+        border-radius: 20px;
+        margin-bottom: 16px;
+        font-family: 'JetBrains Mono', monospace;
+    }
+
+    .verdict-trusted { background: rgba(34,197,94,0.1); color: var(--success); }
+    .verdict-review { background: rgba(245,158,11,0.1); color: var(--warning); }
+    .verdict-caution { background: rgba(239,68,68,0.08); color: #f97316; }
+    .verdict-risky { background: rgba(239,68,68,0.1); color: var(--danger); }
+
+    .score-summary { font-size: 14px; color: var(--text2); max-width: 400px; margin: 0 auto; }
+
+    .checks-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0;
+    }
+
+    .check-cell {
+        padding: 24px;
+        border-right: 1px solid var(--border);
+        border-bottom: 1px solid var(--border);
+    }
+
+    .check-cell:nth-child(2n) { border-right: none; }
+    .check-cell:nth-last-child(-n+2) { border-bottom: none; }
+
+    .check-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 12px;
+    }
+
+    .check-title {
+        font-size: 13px;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+    }
+
+    .check-body {
+        font-size: 12px;
+        color: var(--text2);
+        line-height: 1.65;
+    }
+
+    .check-list {
+        list-style: none;
+        margin-top: 8px;
+    }
+
+    .check-list li {
+        padding: 4px 0;
+        display: flex;
+        gap: 8px;
+        align-items: flex-start;
+        border-bottom: 1px solid var(--border);
+        font-size: 12px;
+    }
+
+    .check-list li:last-child { border-bottom: none; }
+
+    .results-footer {
+        padding: 16px 24px;
+        border-top: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: var(--bg3);
+    }
+
+    @media (max-width: 640px) {
+        .checks-grid { grid-template-columns: 1fr; }
+        .check-cell { border-right: none !important; }
+        .check-cell:last-child { border-bottom: none; }
+    }
+</style>
+{% endblock %}
+{% block body %}
+<nav class="nav">
+    <a href="/" class="nav-logo">
+        <div class="nav-logo-mark">H</div>
+        <span class="nav-logo-text">Hunzo</span>
+    </a>
+    <div class="nav-links">
+        <a href="/dashboard" class="nav-link">Dashboard</a>
+        <a href="/history" class="nav-link">History</a>
+    </div>
+    <a href="/settings" class="nav-btn nav-btn-ghost">Settings</a>
+</nav>
+
+<div class="analyzer-wrap">
+    <div style="margin-bottom:24px">
+        <div style="font-size:20px;font-weight:700;letter-spacing:-0.5px;margin-bottom:4px">Analyze code</div>
+        <div style="font-size:13px;color:var(--text2)">Paste AI-generated code below and get an instant trust report</div>
+    </div>
+
+    <div class="tool-card">
+        <div class="tool-bar">
+            <div class="tool-dots">
+                <div class="dot dot-r"></div>
+                <div class="dot dot-y"></div>
+                <div class="dot dot-g"></div>
+            </div>
+            <div class="tool-name">hunzo — analyzer</div>
+            <div style="width:52px"></div>
+        </div>
+
+        {% if not has_key %}
+        <div style="padding:12px 16px;background:rgba(245,158,11,0.08);border-bottom:1px solid rgba(245,158,11,0.15)">
+            <div style="font-size:12px;color:var(--warning);display:flex;align-items:center;gap:8px">
+                ⚠ No API key saved. <a href="/settings" style="color:var(--accent);text-decoration:none">Add your Groq key in settings →</a>
+            </div>
+        </div>
+        {% else %}
+        <div class="key-section">
+            <div class="key-row">
+                <div class="key-saved">
+                    🔒 {{ masked_key }}
+                </div>
+                <a href="/settings" class="btn btn-ghost btn-sm">Change</a>
+            </div>
+        </div>
+        {% endif %}
+
+        <textarea id="codeInput" placeholder="# Paste your AI-generated code here...
+# Supports Python, JavaScript, Bash, TypeScript and more
+
+import requests
+
+def fetch_data(url):
+    response = requests.get(url)
+    return response.json()"></textarea>
+
+        <div id="errorAlert" class="alert alert-error" style="margin:0 16px 16px"></div>
+
+        <div class="tool-footer">
+            <div class="tool-meta">
+                <span>🔒 Code never stored permanently</span>
+                <span id="charCount" style="font-family:'JetBrains Mono',monospace">0 chars</span>
+            </div>
+            <button class="btn btn-primary" id="analyzeBtn" onclick="analyze()">
+                Analyze →
+            </button>
+        </div>
+
+        <div class="loading-wrap" id="loadingWrap">
+            <div class="loading-spinner"></div>
+            <div class="loading-title">Analyzing your code</div>
+            <div class="loading-step" id="loadingStep">Initializing checks...</div>
+        </div>
+
+        <div class="results-wrap" id="resultsWrap">
+            <div class="score-section">
+                <div class="score-eyebrow">Trust Score</div>
+                <div class="score-big" id="scoreBig">—</div>
+                <div class="score-track">
+                    <div class="score-fill" id="scoreFill"></div>
+                </div>
+                <div class="score-verdict" id="scoreVerdict"></div>
+                <div class="score-summary" id="scoreSummary"></div>
+            </div>
+
+            <div class="checks-grid" id="checksGrid"></div>
+
+            <div class="results-footer">
+                <div style="font-size:12px;color:var(--text3)" id="shareInfo"></div>
+                <button class="btn btn-ghost btn-sm" id="shareBtn" onclick="copyShare()" style="display:none">
+                    Share report ↗
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const steps = [
+    "Scanning packages...",
+    "Checking PyPI registry...",
+    "Analyzing security risks...",
+    "Verifying code logic...",
+    "Generating explanation...",
+    "Calculating trust score..."
+];
+
+let stepInt;
+
+document.getElementById("codeInput").addEventListener("input", function() {
+    document.getElementById("charCount").textContent = this.value.length + " chars";
+});
+
+function startSteps() {
+    let i = 0;
+    const el = document.getElementById("loadingStep");
+    stepInt = setInterval(() => {
+        el.textContent = steps[i % steps.length];
+        i++;
+    }, 1800);
+}
+
+function stopSteps() { clearInterval(stepInt); }
+
+function scoreColor(s) {
+    if (s >= 80) return "#22c55e";
+    if (s >= 60) return "#f59e0b";
+    if (s >= 40) return "#f97316";
+    return "#ef4444";
+}
+
+function scoreVerdict(s) {
+    if (s >= 80) return ["TRUSTED", "verdict-trusted"];
+    if (s >= 60) return ["REVIEW", "verdict-review"];
+    if (s >= 40) return ["CAUTION", "verdict-caution"];
+    return ["RISKY", "verdict-risky"];
+}
+
+function animateScore(target) {
+    let cur = 0;
+    const el = document.getElementById("scoreBig");
+    const fill = document.getElementById("scoreFill");
+    const color = scoreColor(target);
+    const [label, cls] = scoreVerdict(target);
+    const inc = target / 60;
+
+    const verdict = document.getElementById("scoreVerdict");
+    verdict.textContent = label;
+    verdict.className = "score-verdict " + cls;
+
+    const iv = setInterval(() => {
+        cur = Math.min(cur + inc, target);
+        el.textContent = Math.round(cur);
+        el.style.color = color;
+        fill.style.width = cur + "%";
+        fill.style.background = color;
+        if (cur >= target) clearInterval(iv);
+    }, 18);
+}
+
+function badgeCls(s) {
+    const m = { safe: "badge-green", low: "badge-green", warning: "badge-yellow", medium: "badge-yellow", danger: "badge-red", high: "badge-red" };
+    return m[s] || "badge-gray";
+}
+
+function renderList(items, icon) {
+    if (!items || items.length === 0) return "";
+    return `<ul class="check-list">${items.map(i => `<li><span>${icon}</span><span>${i}</span></li>`).join("")}</ul>`;
+}
+
+function renderResults(data) {
+    animateScore(data.trust_score);
+    document.getElementById("scoreSummary").textContent = data.summary || "";
+
+    const p = data.packages;
+    const e = data.explanation;
+    const r = data.risks;
+    const l = data.logic;
+
+    let pkgHtml = `<p style="color:var(--text2);margin-bottom:8px">${p.message}</p>`;
+    if (p.packages && p.packages.length > 0) {
+        pkgHtml += `<ul class="check-list">${p.packages.map(pkg => `<li><span>${pkg.icon}</span><span>${pkg.message}</span></li>`).join("")}</ul>`;
+    }
+
+    let riskHtml = renderList(r.risks, "⚠");
+    riskHtml += renderList(r.safe_practices, "✓");
+    if (!riskHtml) riskHtml = `<p style="color:var(--text2)">No significant risks detected</p>`;
+
+    let logicHtml = `<p style="color:var(--text2);margin-bottom:8px">Confidence: <strong style="color:var(--text)">${l.confidence || "unknown"}</strong></p>`;
+    logicHtml += renderList(l.issues, "→");
+
+    document.getElementById("checksGrid").innerHTML = `
+        <div class="check-cell">
+            <div class="check-header">
+                <div class="check-title">Package Scanner</div>
+                <span class="badge ${badgeCls(p.status)}">${p.status}</span>
+            </div>
+            <div class="check-body">${pkgHtml}</div>
+        </div>
+        <div class="check-cell">
+            <div class="check-header">
+                <div class="check-title">Code Explanation</div>
+                <span class="badge badge-purple">AI</span>
+            </div>
+            <div class="check-body" style="white-space:pre-line">${e.explanation || "—"}</div>
+        </div>
+        <div class="check-cell">
+            <div class="check-header">
+                <div class="check-title">Risk Detector</div>
+                <span class="badge ${badgeCls(r.risk_level)}">${r.risk_level || "unknown"}</span>
+            </div>
+            <div class="check-body">${riskHtml}</div>
+        </div>
+        <div class="check-cell">
+            <div class="check-header">
+                <div class="check-title">Logic Verifier</div>
+                <span class="badge ${l.logic_sound ? "badge-green" : "badge-yellow"}">${l.logic_sound ? "Sound" : "Issues"}</span>
+            </div>
+            <div class="check-body">${logicHtml}</div>
+        </div>
+    `;
+
+    if (data.share_token) {
+        const url = window.location.origin + "/report/" + data.share_token;
+        document.getElementById("shareInfo").textContent = "Report saved to history";
+        document.getElementById("shareBtn").style.display = "flex";
+        document.getElementById("shareBtn").dataset.url = url;
+    }
+}
+
+let shareUrl = "";
+
+function copyShare() {
+    const url = document.getElementById("shareBtn").dataset.url;
+    navigator.clipboard.writeText(url).then(() => {
+        const btn = document.getElementById("shareBtn");
+        btn.textContent = "Copied!";
+        setTimeout(() => btn.textContent = "Share report ↗", 2000);
+    });
+}
+
+async function analyze() {
+    const code = document.getElementById("codeInput").value.trim();
+    const btn = document.getElementById("analyzeBtn");
+    const loading = document.getElementById("loadingWrap");
+    const results = document.getElementById("resultsWrap");
+    const err = document.getElementById("errorAlert");
+
+    err.classList.remove("alert-show");
+    results.style.display = "none";
+
+    if (!code) {
+        err.textContent = "Please paste some code to analyze.";
+        err.classList.add("alert-show");
+        return;
+    }
+
+    loading.style.display = "block";
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>';
+    startSteps();
+
+    try {
+        const res = await fetch("/api/analyze", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ code, use_saved: true })
+        });
+
+        const data = await res.json();
+        stopSteps();
+        loading.style.display = "none";
+
+        if (data.error) {
+            err.textContent = data.error;
+            err.classList.add("alert-show");
+        } else {
+            results.style.display = "block";
+            renderResults(data);
+            results.scrollIntoView({ behavior: "smooth" });
+        }
+    } catch (e) {
+        stopSteps();
+        loading.style.display = "none";
+        err.textContent = "Connection error. Please try again.";
+        err.classList.add("alert-show");
+    }
+
+    btn.disabled = false;
+    btn.textContent = "Analyze →";
+}
+
+document.addEventListener("keydown", e => {
+    if (e.ctrlKey && e.key === "Enter") analyze();
+});
+</script>
+{% endblock %}
