@@ -1,3 +1,6 @@
-.encryption_key
 .env
-
+.encryption_key
+hunzo.db
+__pycache__/
+*.pyc
+*.pyo
